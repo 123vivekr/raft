@@ -24,12 +24,21 @@ pub mod server;
 use client::RaftClientStub;
 use server::RaftServerStub;
 
+pub type RaftLog = Vec<(u64, Vec<u8>)>;
+
 pub struct RaftNode {
     pub client: RaftClientStub,
+    pub currentTerm: usize,
+    pub votedFor: Option<&str>,
+    pub log: Arc<Mutex<RaftLog>>,
 }
 
 impl RaftNode {
+    /// Create a new raft node.
+    ///
+    /// The `new` function will spawn a Server thread.
     pub async fn new(self_addr: String, client_addrs: Vec<String>) -> Self {
+        // 
         let mut clients = HashMap::new();
         for addr in client_addrs {
             clients.insert(addr.clone(), try_add(addr).await);
@@ -56,8 +65,13 @@ impl RaftNode {
                 .await;
         });
 
+        let log = Arc::new(Mutex::new(RaftLog::new()));
+
         Self {
             client: RaftClientStub::new(clients).await,
+            currentTerm: 0,
+            votedFor: None,
+            log,
         }
     }
 }
